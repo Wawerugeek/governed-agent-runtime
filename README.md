@@ -2,7 +2,8 @@
 
 > A control plane that mediates every tool call an AI agent makes. The agent has no ambient authority — it proposes, the policy engine decides, an append-only hash-chained audit log records the decision. Every denial is a signed receipt.
 
-[![status](https://img.shields.io/badge/status-v0.1%20in%20progress-yellow)]()
+[![status](https://img.shields.io/badge/status-v0.1%20shipped-brightgreen)]()
+[![tests](https://img.shields.io/badge/tests-3%20passing-brightgreen)]()
 [![python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -41,12 +42,14 @@ The agent proposes. The **Policy Enforcement Point (PEP)** authorizes against de
 
 ## Status
 
+**v0.1 shipped** — governance loop is working end-to-end. See [Releases](#releases).
+
 | Component | State | Notes |
 |---|---|---|
-| Tool registry with risk tiers | ✅ | LOW / MEDIUM / HIGH |
-| OPA policy engine (external to LLM) | ✅ | Rego, hot-reloads |
-| Policy Enforcement Point (PEP) | ✅ | Every tool call goes through it |
-| Ed25519 hash-chained audit log | ✅ | `verify()` detects any mutation |
+| Tool registry with risk tiers | ✅ v0.1 | LOW / MEDIUM / HIGH |
+| OPA policy engine (external to LLM) | ✅ v0.1 | Rego; restart to reload (see note) |
+| Policy Enforcement Point (PEP) | ✅ v0.1 | Every tool call goes through it |
+| Ed25519 hash-chained audit log | ✅ v0.1 | `verify()` detects mutation + deletion |
 | Short-lived scoped JWT per agent | 🚧 v0.2 | Capability claims, `exp`, `jti` |
 | Live token revocation | 🚧 v0.2 | Kills agent authority mid-run |
 | Ollama-backed LangGraph agent | 🚧 v0.2 | `qwen2.5`, OpenAI-compatible |
@@ -55,9 +58,19 @@ The agent proposes. The **Policy Enforcement Point (PEP)** authorizes against de
 | Prompt-injection guardrail demo | 🚧 v0.4 | Safe-fallback routing |
 | Health checks, retries, CI | 🚧 v1.1 | GitHub Actions |
 
-Legend: ✅ shipped · 🚧 in progress · ⏳ planned
+> **OPA reload note:** the container mounts `policies/` read-only. OPA does not
+> watch for changes — run `docker compose restart opa` after editing Rego.
+> The alternative (`--watch` flag + writable mount) is deferred to v1.1.
 
----
+
+## Releases
+
+### v0.1 — Governance loop *(current)*
+- Tool registry, OPA policy (three-branch: allow / high-risk / missing-capability)
+- PEP mediates every tool call; allow **and** deny both audited
+- Ed25519 hash-chained audit log; `verify()` detects payload mutation and dropped records
+- Scripted agent exercises authorized + blocked paths end-to-end
+- **Proven:** 3 tests passing, tamper demo returns `False`
 
 ## Quickstart
 

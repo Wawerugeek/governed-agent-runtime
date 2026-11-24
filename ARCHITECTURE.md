@@ -32,6 +32,39 @@ Everything between them is a boundary that must be provable.
    see, edit, or prompt-inject it.
 3. **PEP → Audit**: every decision (allow AND deny) is signed and chained.
 
+## Identity (v0.2a)
+
+The agent never self-asserts capabilities. It presents a **signed JWT**;
+the PEP verifies it and constructs the agent context from the *verified
+claims*, not from anything the agent sent as text.
+
+    Agent ── token ──▶ PEP ── verify(signature, aud, iss, exp) ──▶ Claims
+                         │
+                         ├── is_revoked(claims.jti)?  ──▶ deny: token_revoked
+                         │
+                         └── OPA(claims, tool, args) ──▶ allow | deny
+
+**Why this matters:** in v0.1, `AGENT["capabilities"]` was editable source
+code. In v0.2a it is a signed claim the agent cannot mint. Revocation is
+a `jti` lookup, so a compromised agent loses authority on its next call.
+
+**Key separation:** `CONTROL_PLANE_PRIVATE_KEY` mints identities;
+`AUDIT_PRIVATE_KEY` signs audit records. Different blast radii, different
+rotation schedules, never the same key.
+
+**Decision — revocation backend.** JWTs are stateless by design, so
+"revoke before expiry" requires shared state. v0.2a uses an in-memory
+`RevocationStore` keyed by `jti`. In multi-instance deployments this
+becomes Redis/etcd, with a documented propagation delay between
+`/revoke` and enforcement. The interface (`revoke` / `is_revoked`) is
+backend-agnostic — that is the point.
+
+**Decision — unverified tokens are audited as `agent_id: "unknown"`.**
+If the signature fails or the token is expired, we do not trust any claim
+inside it, including `sub`. A forged token cannot attribute its attempt
+to another agent. Attribution for those cases must come from transport
+(mTLS, API gateway logs) — deferred to v1.0.
+
 ## Decisions log
 
 - **v0.1: scripted agent, static capability manifest.** Why: proves the

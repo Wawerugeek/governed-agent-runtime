@@ -2,13 +2,10 @@
 
 > A control plane that mediates every tool call an AI agent makes. The agent has no ambient authority — it proposes, the policy engine decides, an append-only hash-chained audit log records the decision. Every denial is a signed receipt.
 
-[![status](https://img.shields.io/badge/status-v0.1%20shipped-brightgreen)]()
-[![tests](https://img.shields.io/badge/tests-3%20passing-brightgreen)]()
+[![status](https://img.shields.io/badge/status-v0.2a%20shipped-brightgreen)]()
+[![tests](https://img.shields.io/badge/tests-10%20passing-brightgreen)]()
 [![python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-
-<!-- replace with a 10s screen recording once v0.1 lands -->
-<!-- ![demo](docs/demo.gif) -->
 
 ---
 
@@ -47,12 +44,13 @@ The agent proposes. The **Policy Enforcement Point (PEP)** authorizes against de
 | Component | State | Notes |
 |---|---|---|
 | Tool registry with risk tiers | ✅ v0.1 | LOW / MEDIUM / HIGH |
-| OPA policy engine (external to LLM) | ✅ v0.1 | Rego; restart to reload (see note) |
+| OPA policy engine (external to LLM) | ✅ v0.1 | Rego; restart to reload |
 | Policy Enforcement Point (PEP) | ✅ v0.1 | Every tool call goes through it |
 | Ed25519 hash-chained audit log | ✅ v0.1 | `verify()` detects mutation + deletion |
-| Short-lived scoped JWT per agent | 🚧 v0.2 | Capability claims, `exp`, `jti` |
-| Live token revocation | 🚧 v0.2 | Kills agent authority mid-run |
-| Ollama-backed LangGraph agent | 🚧 v0.2 | `qwen2.5`, OpenAI-compatible |
+| Short-lived scoped JWT per agent | ✅ v0.2a | Ed25519-signed, 5-min TTL, aud/iss/exp enforced |
+| Live token revocation | ✅ v0.2a | `/revoke` by `jti`; PEP denies mid-run |
+| FastAPI control plane (`/token`, `/revoke`) | ✅ v0.2a | Demo: unauthenticated; hardening in v1.0 |
+| Ollama-backed LangGraph agent | 🚧 v0.2b | `qwen2.5:0.5b` + structured-output adapter |
 | OpenTelemetry tracing (Jaeger) | 🚧 v0.3 | Reasoning → policy → tool spans |
 | Live dashboard | 🚧 v0.4 | Streamlit → React |
 | Prompt-injection guardrail demo | 🚧 v0.4 | Safe-fallback routing |
@@ -64,6 +62,17 @@ The agent proposes. The **Policy Enforcement Point (PEP)** authorizes against de
 
 
 ## Releases
+### v0.2a — Verified identity + revocation *(current)*
+- Ed25519-signed JWTs, 5-min TTL, `aud`/`iss`/`exp` enforced on every call
+- `/token` and `/revoke` endpoints on a FastAPI control plane
+- PEP verifies token → checks revocation → consults OPA → audits
+- Five distinct denial reasons, all signed and chained:
+  `high_risk_requires_hitl`, `token_revoked`, `token_expired`,
+  `invalid_signature`, `unknown_tool`
+- **Proven:** 10 tests passing; revocation kills authority mid-run;
+  audit chain still verifies after all deny paths
+- **Honest scope:** revocation store is per-process (in-memory); `/token`
+  and `/revoke` are unauthenticated for demo. Both documented as v1.0 work.
 
 ### v0.1 — Governance loop *(current)*
 - Tool registry, OPA policy (three-branch: allow / high-risk / missing-capability)
